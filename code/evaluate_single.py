@@ -3,16 +3,6 @@ from scipy import stats
 import json
 import argparse
 
-parser = argparse.ArgumentParser(description="Parser for LoRA")
-parser.add_argument('--pred_path', type=str, default=None)
-# parser.add_argument('--group_path', type=str, default=None)
-parser.add_argument('--label_path', type=str, default=None)
-parser.add_argument('--mode', type=str, default=None)
-parser.add_argument('--rel_rating', action="store_true")
-
-args = parser.parse_args()
-print('#'*100)
-
 error1 = 0
 error2 = 0
 
@@ -75,6 +65,19 @@ def load_pred(args):
 
     return pred, pred_rank
 
+def ranking_to_ranks(order):
+    """Convert a best-first permutation of user IDs 1..n to per-user ranks.
+
+    Kendall tau compares values for the same users, not user IDs occupying the
+    same position in two sorted lists. Rank zero denotes the first user.
+    """
+    order = np.asarray(order)
+    if (order.ndim != 1 or order.size < 2
+            or not np.array_equal(np.sort(order), np.arange(1, order.size + 1))):
+        raise ValueError('A ranking must contain each user ID from 1 to n exactly once (n >= 2).')
+    return np.argsort(order)
+
+
 def compute_tau(pred, label):
     all_tau = []
     for k in pred.keys():
@@ -86,7 +89,8 @@ def compute_tau(pred, label):
             # print('--'*10)
             # print("y_pred: {}".format(y_pred))
             # print("y_true: {}".format(y_true))
-            tau, _ = stats.kendalltau(y_pred, y_true)
+            tau, _ = stats.kendalltau(ranking_to_ranks(y_pred),
+                                      ranking_to_ranks(y_true))
             # print(tau)
             all_tau.append(tau)
         except:
@@ -173,13 +177,24 @@ def matrix(args):
 
     return result, pearsonr, acc, f1
 
-m, p, acc, f1 = matrix(args)
-# np.savetxt('main_tau.csv', m, delimiter=', ')
-print(error1, error2)
+def main():
+    parser = argparse.ArgumentParser(description="Parser for LoRA")
+    parser.add_argument('--pred_path', type=str, default=None)
+    parser.add_argument('--label_path', type=str, default=None)
+    parser.add_argument('--mode', type=str, default=None)
+    parser.add_argument('--rel_rating', action="store_true")
+    args = parser.parse_args()
+    print('#'*100)
 
-print("PRED: {}".format(args.pred_path))
-print("LABEL: {}".format(args.label_path))
-print("GROUP: {}".format(args.label_path))
-print("Kendall-Tau: {}".format(m))
-print("Pearsonr: {}".format(p))
-print("ACC: {} | F1: {}".format(acc, f1))
+    m, p, acc, f1 = matrix(args)
+    print(error1, error2)
+    print("PRED: {}".format(args.pred_path))
+    print("LABEL: {}".format(args.label_path))
+    print("GROUP: {}".format(args.label_path))
+    print("Kendall-Tau: {}".format(m))
+    print("Pearsonr: {}".format(p))
+    print("ACC: {} | F1: {}".format(acc, f1))
+
+
+if __name__ == '__main__':
+    main()

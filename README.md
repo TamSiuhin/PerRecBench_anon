@@ -101,6 +101,28 @@ Change the MODEL_ID in ```code/evaluate_model_abs.sh`` and run the following com
 bash evaluate_model_abs.sh
 ```
 
+### Kendall tau calculation
+
+The evaluator converts each best-first user-ID ordering into a vector of ranks
+indexed by the same users before computing Kendall tau. For example, the orders
+`[3, 1, 2]` and `[1, 3, 2]` disagree on one of three user pairs, giving tau `1/3`.
+Comparing the ID lists directly incorrectly gives `-1`.
+
+This correction applies to pointwise, pairwise, and listwise evaluation. The
+existing pointwise sorting and tie-breaking convention is retained; tied scores
+are still converted to strict orders, rather than evaluated as score-based
+tau-b. Previously reported Kendall tau values should be recomputed using the
+corrected evaluator before being compared with new results.
+
+Rankings must contain every user ID from `1` to `n` exactly once. Malformed
+rankings are skipped and counted in the evaluator's existing `error2` counter.
+
+Run the regression tests from the repository root:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
 ## Model SFT ##
 For improvement, please try supervised finetuning (SFT).
 ```bash
